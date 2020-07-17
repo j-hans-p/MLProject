@@ -1,0 +1,77 @@
+---
+title: "Predicting Movement Quality"
+author: "Hans P"
+date: "7/17/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+```
+## Executive Summary
+This document is the course project for Practical Machine Learning. In it we use a training set of movement data to try and predict movement quality in a test data set. As will be shown below, I completed some exploratory analysis to reduce the feature set, fit a knn model with cross validation, and evaluated the outputs.
+
+## Load Data  
+Start by loading the data. 
+
+```{r load data}
+
+testset <- read.csv('pml-testing.csv')
+trainset <- read.csv('pml-training.csv')
+```
+
+## Exploratory Analysis
+Let's quickly take a look at what we're working with. Looks like about 19k rows of data in the training set and just 20 rows of testing data that'll be used later to answer quiz questions. We can also see that there isn't too much bias in the classes, which each well represented.
+```{r exploratory}
+dim(trainset)
+dim(testset)
+table(trainset$classe)
+```
+
+## Feature Selection
+Quick exploratory analysis showed that many of the 160 variables were either blank or NA. To start, we can reduce down to only those features that we'll have available to us in the testset. 
+```{r predictors, echo=FALSE}
+
+features <- c('roll_belt',	'pitch_belt',	'yaw_belt',	'total_accel_belt',	'gyros_belt_x',	'gyros_belt_y',	'gyros_belt_z',	'accel_belt_x',	'accel_belt_y',	'accel_belt_z',	'magnet_belt_x',	'magnet_belt_y',	'magnet_belt_z',	'roll_arm',	'pitch_arm',	'yaw_arm',	'total_accel_arm',	'gyros_arm_x',	'gyros_arm_y',	'gyros_arm_z',	'accel_arm_x',	'accel_arm_y',	'accel_arm_z',	'magnet_arm_x',	'magnet_arm_y',	'magnet_arm_z',	'roll_dumbbell',	'pitch_dumbbell',	'yaw_dumbbell',	'gyros_dumbbell_x',	'gyros_dumbbell_y',	'gyros_dumbbell_z',	'accel_dumbbell_x',	'accel_dumbbell_y',	'accel_dumbbell_z',	'magnet_dumbbell_x',	'magnet_dumbbell_y',	'magnet_dumbbell_z',	'roll_forearm',	'pitch_forearm',	'yaw_forearm',	'total_accel_forearm',	'gyros_forearm_x',	'gyros_forearm_y',	'gyros_forearm_z',	'accel_forearm_x',	'accel_forearm_y',	'accel_forearm_z',	'magnet_forearm_x',	'magnet_forearm_y',	'magnet_forearm_z','classe')
+
+features2 <- c('roll_belt',	'pitch_belt',	'yaw_belt',	'total_accel_belt',	'gyros_belt_x',	'gyros_belt_y',	'gyros_belt_z',	'accel_belt_x',	'accel_belt_y',	'accel_belt_z',	'magnet_belt_x',	'magnet_belt_y',	'magnet_belt_z',	'roll_arm',	'pitch_arm',	'yaw_arm',	'total_accel_arm',	'gyros_arm_x',	'gyros_arm_y',	'gyros_arm_z',	'accel_arm_x',	'accel_arm_y',	'accel_arm_z',	'magnet_arm_x',	'magnet_arm_y',	'magnet_arm_z',	'roll_dumbbell',	'pitch_dumbbell',	'yaw_dumbbell',	'gyros_dumbbell_x',	'gyros_dumbbell_y',	'gyros_dumbbell_z',	'accel_dumbbell_x',	'accel_dumbbell_y',	'accel_dumbbell_z',	'magnet_dumbbell_x',	'magnet_dumbbell_y',	'magnet_dumbbell_z',	'roll_forearm',	'pitch_forearm',	'yaw_forearm',	'total_accel_forearm',	'gyros_forearm_x',	'gyros_forearm_y',	'gyros_forearm_z',	'accel_forearm_x',	'accel_forearm_y',	'accel_forearm_z',	'magnet_forearm_x',	'magnet_forearm_y',	'magnet_forearm_z')
+
+dftrain <- trainset[features]
+dftest <- testset[features2]
+features
+```
+
+## Model Setup
+This is a multiclassification problem with purely numeric data. Though not covered in detail in the course, for this type of problem I find that k nearest neighbor models (knn) work well and have been successful in applying them to different types of human activity problems in the past.  
+The setup for knn models is similar to the models highlighted in this course, but with method = "knn".
+
+```{r model, echo=TRUE}
+library(caret)
+set.seed(1234)
+inTrain <- createDataPartition(y=dftrain$classe, p=0.7,list=FALSE)
+training <- dftrain[inTrain,]
+testing <- dftrain[-inTrain,]
+
+ctrl <- trainControl(method="repeatedcv",repeats = 3)  
+mod <- train(classe ~., data=training,method="knn",trControl = ctrl)
+```
+
+## Model Analysis
+The output of the model object shows...
+```{r modelanalysis}
+mod
+```
+We can see from the diagonal of the table with predicted values vs. actual values in the testset that our knn model works well. 
+```{r resultsanalysis}
+pred <- predict(mod,testing)
+table(pred,testing$classe)
+```
+The accuracy on the testset (out-of-sample-error) is about 76%, which is lower than the accuracy of the model on the trainingset (in-sample-error), which is to be expected by theory.
+
+## Prediction
+Finally, we can use the knn model on the 'pml-testing.csv' file. This model scored a 90% on the quiz, a bit better than expectation.
+```{r quiz}
+quizans <- predict(mod,dftest)
+```
